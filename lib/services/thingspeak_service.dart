@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/uv_data.dart';
+import 'csv_export_service.dart';
 
 class ThingSpeakService {
   // ==========================================
@@ -119,7 +121,7 @@ class ThingSpeakService {
   /// Request histori feed untuk visualisasi grafik tren
   Future<List<UvData>> fetchHistory({int results = 10}) async {
     if (!isConfigured) {
-      return _generateMockHistory();
+      return _generateMockHistory(count: results);
     }
 
     final queryParams = <String, String>{'results': results.toString()};
@@ -150,18 +152,28 @@ class ThingSpeakService {
     }
   }
 
+  /// Ekspor data riwayat ke file CSV dan bagikan / simpan
+  Future<File> exportDataCsv({int results = 100}) async {
+    final data = await fetchHistory(results: results);
+    return await CsvExportService.exportAndShareCsv(
+      data,
+      channelId: isConfigured ? channelId : 'Demo_Channel',
+    );
+  }
+
   /// Mock data jika pengguna belum memasukkan Channel ID asli
-  List<UvData> _generateMockHistory() {
+  List<UvData> _generateMockHistory({int count = 10}) {
     final now = DateTime.now();
     final random = Random();
     final baseValues = [1.2, 1.8, 2.5, 3.8, 5.2, 6.7, 7.3, 6.8, 5.1, 4.2];
 
-    return List.generate(baseValues.length, (index) {
+    return List.generate(count, (index) {
+      final base = baseValues[index % baseValues.length];
       final variation = (random.nextDouble() * 0.4) - 0.2;
-      final val = (baseValues[index] + variation).clamp(0.0, 11.0);
+      final val = (base + variation).clamp(0.0, 11.0);
       return UvData(
         uvIndex: double.parse(val.toStringAsFixed(1)),
-        timestamp: now.subtract(Duration(minutes: (10 - index) * 15)),
+        timestamp: now.subtract(Duration(minutes: (count - index) * 15)),
         entryId: index + 1,
       );
     });
